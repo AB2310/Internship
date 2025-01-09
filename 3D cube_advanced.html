@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background: transparent;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-family: 'Arial', sans-serif;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 15px 25px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(96, 165, 250, 0.2);
+            border: 1px solid rgba(96, 165, 250, 0.2);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .key {
+            background: rgba(96, 165, 250, 0.2);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            border: 1px solid rgba(96, 165, 250, 0.3);
+            color: #60a5fa;
+        }
+
+        .action {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+
+        .separator {
+            width: 1px;
+            height: 20px;
+            background: rgba(96, 165, 250, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="canvas"></canvas>
+    </div>
+    <div class="controls">
+        <div class="control-item">
+            <span class="key">Space</span>
+            <span class="action">Auto-rotate</span>
+        </div>
+        <div class="separator"></div>
+        <div class="control-item">
+            <span class="key">Mouse</span>
+            <span class="action">Control</span>
+        </div>
+        <div class="separator"></div>
+        <div class="control-item">
+            <span class="key">Scroll</span>
+            <span class="action">Zoom</span>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const vertices = [
+            [-1.2, -1.2, -1.2],
+            [1.2, -1.2, -1.2],
+            [1.2, 1.2, -1.2],
+            [-1.2, 1.2, -1.2],
+            [-1.2, -1.2, 1.2],
+            [1.2, -1.2, 1.2],
+            [1.2, 1.2, 1.2],
+            [-1.2, 1.2, 1.2]
+        ];
+
+        const edges = [
+            [0, 1], [1, 2], [2, 3], [3, 0],
+            [4, 5], [5, 6], [6, 7], [7, 4],
+            [0, 4], [1, 5], [2, 6], [3, 7]
+        ];
+
+        let angleX = 0;
+        let angleY = 0;
+        let angleZ = 0;
+        let scale = Math.min(window.innerWidth, window.innerHeight) / 4;
+        let autoRotate = true;
+        let mouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+
+        window.addEventListener('mousedown', (e) => {
+            mouseDown = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+
+        window.addEventListener('mouseup', () => {
+            mouseDown = false;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (mouseDown) {
+                const sensitivity = 0.005;
+                targetRotationY += (e.clientX - lastMouseX) * sensitivity;
+                targetRotationX += (e.clientY - lastMouseY) * sensitivity;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            }
+        });
+
+        window.addEventListener('wheel', (e) => {
+            const zoomSensitivity = 0.1;
+            scale -= e.deltaY * zoomSensitivity;
+            scale = Math.max(100, Math.min(scale, 1000));
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                autoRotate = !autoRotate;
+                e.preventDefault();
+            }
+        });
+
+        function rotateX(point, angle) {
+            const [x, y, z] = point;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [x, y * cos - z * sin, y * sin + z * cos];
+        }
+
+        function rotateY(point, angle) {
+            const [x, y, z] = point;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [x * cos + z * sin, y, -x * sin + z * cos];
+        }
+
+        function rotateZ(point, angle) {
+            const [x, y, z] = point;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [x * cos - y * sin, x * sin + y * cos, z];
+        }
+
+        function project(point) {
+            const distance = 4;
+            const [x, y, z] = point;
+            const projection = scale / (z + distance);
+            return [
+                x * projection + canvas.width / 2,
+                y * projection + canvas.height / 2,
+                z
+            ];
+        }
+
+        function drawCube() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Smooth rotation transition
+            angleX += (targetRotationX - angleX) * 0.1;
+            angleY += (targetRotationY - angleY) * 0.1;
+            if (autoRotate) {
+                angleZ += 0.005;
+            }
+
+            // Transform and project vertices
+            const transformedVertices = vertices.map(vertex => {
+                let point = rotateX(vertex, angleX);
+                point = rotateY(point, angleY);
+                point = rotateZ(point, angleZ);
+                return project(point);
+            });
+
+            // Draw edges with enhanced glow effect
+            edges.forEach(([start, end]) => {
+                ctx.beginPath();
+                ctx.moveTo(transformedVertices[start][0], transformedVertices[start][1]);
+                ctx.lineTo(transformedVertices[end][0], transformedVertices[end][1]);
+                
+                // Create gradient stroke
+                const gradient = ctx.createLinearGradient(
+                    transformedVertices[start][0], transformedVertices[start][1],
+                    transformedVertices[end][0], transformedVertices[end][1]
+                );
+                gradient.addColorStop(0, '#60a5fa');
+                gradient.addColorStop(1, '#3b82f6');
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                
+                // Enhanced glow effect
+                ctx.shadowColor = '#60a5fa';
+                ctx.shadowBlur = 15;
+                
+                ctx.stroke();
+            });
+
+            requestAnimationFrame(drawCube);
+        }
+
+        drawCube();
+    </script>
+</body>
+</html>

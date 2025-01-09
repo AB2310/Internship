@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+    <title>3D Cube</title>
+<head>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <canvas id="canvas"></canvas>
+    </div>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Make canvas fullscreen and handle resize
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Cube vertices (made slightly larger)
+        const vertices = [
+            [-1.2, -1.2, -1.2],
+            [1.2, -1.2, -1.2],
+            [1.2, 1.2, -1.2],
+            [-1.2, 1.2, -1.2],
+            [-1.2, -1.2, 1.2],
+            [1.2, -1.2, 1.2],
+            [1.2, 1.2, 1.2],
+            [-1.2, 1.2, 1.2]
+        ];
+
+        // Cube edges
+        const edges = [
+            [0, 1], [1, 2], [2, 3], [3, 0],
+            [4, 5], [5, 6], [6, 7], [7, 4],
+            [0, 4], [1, 5], [2, 6], [3, 7]
+        ];
+
+        let angleX = 0;
+        let angleY = 0;
+        let angleZ = 0;
+
+        // Mouse interaction
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+
+        window.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX - window.innerWidth / 2) / window.innerWidth;
+            mouseY = (e.clientY - window.innerHeight / 2) / window.innerHeight;
+            targetRotationX = mouseY * 2;
+            targetRotationY = mouseX * 2;
+        });
+
+        function rotateX(point, angle) {
+            const [x, y, z] = point;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [
+                x,
+                y * cos - z * sin,
+                y * sin + z * cos
+            ];
+        }
+
+        function rotateY(point, angle) {
+            const [x, y, z] = point;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [
+                x * cos + z * sin,
+                y,
+                -x * sin + z * cos
+            ];
+        }
+
+        function rotateZ(point, angle) {
+            const [x, y, z] = point;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            return [
+                x * cos - y * sin,
+                x * sin + y * cos,
+                z
+            ];
+        }
+
+        function project(point) {
+            const scale = Math.min(window.innerWidth, window.innerHeight) / 4;
+            const distance = 4;
+            const [x, y, z] = point;
+            const projection = scale / (z + distance);
+            return [
+                x * projection + canvas.width / 2,
+                y * projection + canvas.height / 2
+            ];
+        }
+
+        function drawCube() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Smooth rotation transition
+            angleX += (targetRotationX - angleX) * 0.05;
+            angleY += (targetRotationY - angleY) * 0.05;
+            angleZ += 0.005;
+
+            // Transform and project vertices
+            const projectedPoints = vertices.map(vertex => {
+                let point = rotateX(vertex, angleX);
+                point = rotateY(point, angleY);
+                point = rotateZ(point, angleZ);
+                return project(point);
+            });
+
+            // Draw edges with gradient and glow effect
+            edges.forEach(([start, end]) => {
+                ctx.beginPath();
+                ctx.moveTo(...projectedPoints[start]);
+                ctx.lineTo(...projectedPoints[end]);
+                
+                // Create gradient stroke
+                const gradient = ctx.createLinearGradient(
+                    projectedPoints[start][0], projectedPoints[start][1],
+                    projectedPoints[end][0], projectedPoints[end][1]
+                );
+                gradient.addColorStop(0, '#60a5fa');
+                gradient.addColorStop(1, '#3b82f6');
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                
+                // Add glow effect
+                ctx.shadowColor = '#60a5fa';
+                ctx.shadowBlur = 10;
+                
+                ctx.stroke();
+            });
+
+            requestAnimationFrame(drawCube);
+        }
+
+        drawCube();
+    </script>
+</body>
+</html>
