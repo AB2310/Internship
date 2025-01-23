@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake Game with Bonus</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #333;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      background-color: #000;
+      display: block;
+      border: 2px solid #fff;
+    }
+
+    .info {
+      position: absolute;
+      top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="info">
+    <h1>Snake Game</h1>
+    <p>Score: <span id="score">0</span></p>
+    <p>Use arrow keys to play</p>
+  </div>
+  <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Game constants
+    const boxSize = 20;
+    const rows = canvas.height / boxSize;
+    const cols = canvas.width / boxSize;
+
+    // Game variables
+    let snake = [{ x: 5 * boxSize, y: 5 * boxSize }];
+    let direction = "RIGHT";
+    let food = { x: Math.floor(Math.random() * cols) * boxSize, y: Math.floor(Math.random() * rows) * boxSize };
+    let bonusFood = null;
+    let score = 0;
+    let bonusTimer = 0; // Timer to track bonus snack appearance/disappearance
+
+    // Draw the game components
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw regular food
+      ctx.fillStyle = "red";
+      ctx.fillRect(food.x, food.y, boxSize, boxSize);
+
+      // Draw bonus food if it exists
+      if (bonusFood) {
+        ctx.fillStyle = "gold";
+        ctx.fillRect(bonusFood.x, bonusFood.y, boxSize, boxSize);
+      }
+
+      // Draw snake
+      ctx.fillStyle = "lime";
+      snake.forEach((segment) => {
+        ctx.fillRect(segment.x, segment.y, boxSize, boxSize);
+      });
+    }
+
+    // Update the game logic
+    function updateGame() {
+      const head = { ...snake[0] };
+
+      if (direction === "LEFT") head.x -= boxSize;
+      if (direction === "RIGHT") head.x += boxSize;
+      if (direction === "UP") head.y -= boxSize;
+      if (direction === "DOWN") head.y += boxSize;
+
+      // Check collision with walls
+      if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+        resetGame();
+        return;
+      }
+
+      // Check collision with itself
+      if (snake.some((segment, index) => index !== 0 && segment.x === head.x && segment.y === head.y)) {
+        resetGame();
+        return;
+      }
+
+      // Add new head to the snake
+      snake.unshift(head);
+
+      // Check collision with regular food
+      if (head.x === food.x && head.y === food.y) {
+        score += 1;
+        document.getElementById("score").textContent = score;
+        food = { x: Math.floor(Math.random() * cols) * boxSize, y: Math.floor(Math.random() * rows) * boxSize };
+      } else if (bonusFood && head.x === bonusFood.x && head.y === bonusFood.y) {
+        // Check collision with bonus food
+        score += 5; // Bonus food gives more points
+        document.getElementById("score").textContent = score;
+        bonusFood = null; // Remove bonus food after it's eaten
+      } else {
+        snake.pop(); // Remove tail if no food is eaten
+      }
+
+      // Handle bonus food timer
+      bonusTimer++;
+      if (bonusTimer === 100) {
+        // Spawn bonus food at fixed intervals
+        bonusFood = {
+          x: Math.floor(Math.random() * cols) * boxSize,
+          y: Math.floor(Math.random() * rows) * boxSize,
+        };
+      } else if (bonusTimer > 150) {
+        // Remove bonus food after a short duration
+        bonusFood = null;
+        bonusTimer = 0;
+      }
+    }
+
+    // Reset the game
+    function resetGame() {
+      alert(`Game Over! Your score: ${score}`);
+      snake = [{ x: 5 * boxSize, y: 5 * boxSize }];
+      direction = "RIGHT";
+      score = 0;
+      document.getElementById("score").textContent = score;
+      food = { x: Math.floor(Math.random() * cols) * boxSize, y: Math.floor(Math.random() * rows) * boxSize };
+      bonusFood = null;
+      bonusTimer = 0;
+    }
+
+    // Handle keyboard input
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
+      if (event.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
+      if (event.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
+      if (event.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
+    });
+
+    // Game loop
+    function gameLoop() {
+      updateGame();
+      drawGame();
+    }
+
+    setInterval(gameLoop, 100);
+  </script>
+</body>
+</html>
+                  
